@@ -1280,8 +1280,9 @@ async def _exec_tg_send_to_channel(bot, target, text):
     if not text:
         return "Error: text bo'sh"
     try:
-        # Convert markdown to HTML and add premium emojis
-        html_text = markdown_to_html(text)
+        # Guest mode: convert to HTML WITHOUT premium emoji conversion
+        # (premium emojis don't work in guest mode, regular ones look ugly)
+        html_text = _guest_markdown_to_html(text)
         msg = await bot.send_message(
             chat_id=target,
             text=html_text,
@@ -1645,7 +1646,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # AI response with streaming
         user_id = update.effective_user.id if update.effective_user else 0
         session = get_chat_session(user_id, None)
-        prompt = f"[{user_name}] (Guest — bot a'zo bo'lmagan chatdan.): {text}"
+        prompt = f"[{user_name}] (Guest - bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM oddiy emoji ishlat — faqat 1-2 ta, matn sifatiga e'tibor ber!): {text}"
 
         response_text = ""
         stream = await session.send_message_stream(prompt)
@@ -1673,8 +1674,8 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if not response_text:
             response_text = "Savol bering, javob beraman! 😊"
 
-        # Convert to HTML with premium emojis
-        html_text = markdown_to_html(response_text)
+        # Convert to HTML without premium emojis
+        html_text = _guest_markdown_to_html(response_text)
 
         # Parse HTML to plain text and entities array (supporting ALL formatting tags like bold, custom_emoji, links, blockquotes)
         # httpx imported at top level
@@ -1709,7 +1710,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         else:
             logger.warning("Guest API error: %s — falling back. Payload: %s", result_data, json.dumps(payload))
             # Fallback: plain HTML without custom emojis
-            plain_html = markdown_to_html(response_text)
+            plain_html = _guest_markdown_to_html(response_text)
             # InlineQueryResultArticle, InputTextMessageContent imported at top level
             result = InlineQueryResultArticle(
                 id="guest_fallback",
