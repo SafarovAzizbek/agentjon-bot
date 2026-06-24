@@ -24,6 +24,7 @@ from google import genai
 from google.genai import types
 from ddgs import DDGS
 import httpx
+from supabase import create_client, Client
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -46,6 +47,17 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+
+# ─── Supabase Client ─────────────────────────────────────────────────────────
+supabase_client: Client | None = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        logger.error("Failed to initialize Supabase client: %s", e)
 
 # ─── Gemini Client (lazy init) ───────────────────────────────────────────────
 _genai_client = None
@@ -136,7 +148,7 @@ def _get_emoji_regex():
 _MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
 def _load_emoji_map():
-    """Load emoji -> [custom_emoji_id, ...] multi-map from emoji_multi_map.json."""
+    """Load emoji -> [custom_emoji_id, ...] from JSON and Supabase."""
     global _EMOJI_MAP
     if _EMOJI_MAP:
         return _EMOJI_MAP
@@ -144,16 +156,33 @@ def _load_emoji_map():
     try:
         with open(map_path, 'r', encoding='utf-8') as f:
             raw = json.load(f)
-        # Normalize: accept both old {emoji: str} and new {emoji: [str, ...]} formats
         for k, v in raw.items():
             if isinstance(v, list):
                 _EMOJI_MAP[k] = v
             else:
                 _EMOJI_MAP[k] = [v]
-        logger.info("Loaded %d premium emojis (multi-map)", len(_EMOJI_MAP))
+        logger.info("Loaded %d premium emojis from JSON", len(_EMOJI_MAP))
     except Exception as e:
         logger.warning("Could not load emoji_multi_map.json: %s", e)
         _EMOJI_MAP = {}
+
+    # Merge from Supabase
+    if supabase_client:
+        try:
+            res = supabase_client.table('emoji_cache').select('*').execute()
+            if res.data:
+                for row in res.data:
+                    emoji = row['emoji']
+                    custom_ids = row.get('custom_ids', [])
+                    if emoji not in _EMOJI_MAP:
+                        _EMOJI_MAP[emoji] = custom_ids
+                    else:
+                        _EMOJI_MAP[emoji] = list(set(_EMOJI_MAP[emoji] + custom_ids))
+                    _dynamic_search_done.add(emoji)
+                logger.info("Merged %d emojis from Supabase", len(res.data))
+        except Exception as e:
+            logger.error("Failed to load emoji cache from Supabase: %s", e)
+
     return _EMOJI_MAP
 
 
@@ -196,8 +225,8 @@ async def _search_single_emoji(bot_token: str, emoji: str):
                 json={"emoji": emoji, "sticker_type": "custom_emoji", "limit": 10}
             )
             data = r.json()
+            ids = []
             if data.get("ok") and data.get("result"):
-                ids = []
                 for sticker in data["result"]:
                     cid = sticker.get("custom_emoji_id")
                     if cid and cid not in ids:
@@ -206,6 +235,18 @@ async def _search_single_emoji(bot_token: str, emoji: str):
                     _EMOJI_MAP[emoji] = ids
                     _emoji_regex = None  # Force regex rebuild with new emojis
                     logger.debug("Dynamic emoji: %s -> %d custom IDs", emoji, len(ids))
+
+            # Save to Supabase (even if empty, to remember we searched it)
+            if supabase_client:
+                def _save_emoji():
+                    try:
+                        supabase_client.table('emoji_cache').upsert({
+                            'emoji': emoji,
+                            'custom_ids': ids
+                        }).execute()
+                    except Exception as e:
+                        logger.error("Failed to save emoji to Supabase in thread: %s", e)
+                asyncio.create_task(asyncio.to_thread(_save_emoji))
     except Exception:
         pass  # Silent fail — emoji just won't be premium
 
@@ -804,8 +845,37 @@ def _prune_session_history(session):
         logger.debug("History prune skipped: %s", e)
 
 
+def _serialize_history(session) -> list[dict]:
+    """Serialize Gemini history to JSON, omitting raw media to save space."""
+    history = getattr(session, '_history', None) or getattr(session, 'history', None)
+    if not history:
+        return []
+    res = []
+    for turn in history:
+        role = turn.role
+        parts = []
+        for part in turn.parts:
+            if hasattr(part, 'text') and part.text:
+                parts.append({"text": part.text})
+            else:
+                parts.append({"text": "[Media omitted]"})
+        res.append({"role": role, "parts": parts})
+    return res
+
+
+def _deserialize_history(history_data: list[dict]) -> list[types.Content]:
+    """Deserialize JSON history back to Gemini Content objects."""
+    res = []
+    for turn in history_data:
+        parts = []
+        for p in turn.get("parts", []):
+            parts.append(types.Part.from_text(text=p.get("text", "")))
+        res.append(types.Content(role=turn.get("role", "user"), parts=parts))
+    return res
+
+
 def get_chat_session(chat_id: int, message_thread_id: int | None = None):
-    """Return an existing or new Gemini chat session with true LRU eviction."""
+    """Return an existing or new Gemini chat session with true LRU eviction + Supabase load."""
     key = f"{chat_id}_{message_thread_id}" if message_thread_id else str(chat_id)
     now = time.time()
 
@@ -817,7 +887,6 @@ def get_chat_session(chat_id: int, message_thread_id: int | None = None):
 
     # Evict LEAST recently used sessions when over limit
     while len(_chat_sessions) >= _MAX_SESSIONS:
-        # Find the least recently used key
         oldest_key = min(_session_last_used, key=_session_last_used.get, default=None)
         if oldest_key:
             del _chat_sessions[oldest_key]
@@ -825,6 +894,17 @@ def get_chat_session(chat_id: int, message_thread_id: int | None = None):
             logger.debug("Evicted LRU session: %s", oldest_key)
         else:
             break
+
+    # Load from Supabase
+    loaded_history = None
+    if supabase_client:
+        try:
+            res = supabase_client.table('chat_sessions').select('history').eq('id', key).execute()
+            if res.data and res.data[0].get('history'):
+                loaded_history = _deserialize_history(res.data[0]['history'])
+                logger.info("Loaded session %s from Supabase with %d turns", key, len(loaded_history))
+        except Exception as e:
+            logger.error("Failed to load session from Supabase: %s", e)
 
     _chat_sessions[key] = _get_genai_client().aio.chats.create(
         model=GEMINI_MODEL,
@@ -837,6 +917,7 @@ def get_chat_session(chat_id: int, message_thread_id: int | None = None):
                 disable=True
             ),
         ),
+        history=loaded_history,
     )
     _session_last_used[key] = now
     return _chat_sessions[key]
@@ -1342,6 +1423,20 @@ async def cmd_addemoji(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Save
     with open(map_path, 'w', encoding='utf-8') as f:
         json.dump(emap, f, ensure_ascii=False, indent=2)
+
+    # Save to Supabase
+    if supabase_client and added > 0:
+        def _sync_supabase():
+            try:
+                for sticker in sticker_set.stickers:
+                    if sticker.custom_emoji_id and sticker.emoji:
+                        supabase_client.table('emoji_cache').upsert({
+                            'emoji': sticker.emoji,
+                            'custom_ids': emap.get(sticker.emoji, [])
+                        }).execute()
+            except Exception as e:
+                logger.error("Failed to sync emoji pack to Supabase: %s", e)
+        asyncio.create_task(asyncio.to_thread(_sync_supabase))
 
     # Reload cache (reset both map and regex)
     global _EMOJI_MAP, _emoji_regex
@@ -2017,6 +2112,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Success reaction (fire-and-forget — 0 delay)
         if not stripped.startswith("[IGNORE]"):
             asyncio.create_task(set_premium_reaction(message, "👍"))
+
+        # ── Save Session to Supabase ──
+        if supabase_client:
+            try:
+                history_data = _serialize_history(session)
+                key = f"{chat_id}_{thread_id}" if thread_id else str(chat_id)
+                def _save_session_sync():
+                    try:
+                        supabase_client.table('chat_sessions').upsert({
+                            'id': key,
+                            'history': history_data
+                        }).execute()
+                    except Exception as e:
+                        logger.error("Failed to save session to Supabase in thread: %s", e)
+                asyncio.create_task(asyncio.to_thread(_save_session_sync))
+            except Exception as e:
+                logger.error("Failed to start Supabase save task: %s", e)
 
     except Forbidden as e:
         _thinking_state[0] = False
