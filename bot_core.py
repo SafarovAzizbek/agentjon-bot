@@ -1677,16 +1677,25 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # AI response with streaming
         user_id = update.effective_user.id if update.effective_user else 0
         session = get_chat_session(user_id, None)
-        prompt = f"[{user_name}] (Guest — bot a'zo bo'lmagan chatdan): {text}"
+        prompt = f"[{user_name}] (Guest — bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM oddiy emoji ishlat - faqat 1-2 ta!): {text}"
 
         response_text = ""
         stream = await session.send_message_stream(prompt)
         async for chunk in stream:
             try:
-                if chunk.text:
-                    response_text += chunk.text
-            except (AttributeError, IndexError, ValueError):
-                continue
+                for part in chunk.candidates[0].content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        response_text += part.text
+                    elif hasattr(part, 'executable_code') and part.executable_code:
+                        response_text += f"\n\n```python\n{part.executable_code.code}\n```\n"
+                    elif hasattr(part, 'code_execution_result') and part.code_execution_result:
+                        response_text += f"\n`Natija: {part.code_execution_result.output}`\n"
+            except Exception:
+                try:
+                    if chunk.text:
+                        response_text += chunk.text
+                except Exception:
+                    pass
 
         # Clean up
         response_text = _RE_GUEST_REACTION.sub('', response_text)
@@ -1696,8 +1705,8 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if not response_text:
             response_text = "Savol bering, javob beraman! 😊"
 
-        # Convert to HTML with premium emojis (markdown_to_html already calls emojis_to_premium)
-        html_text = markdown_to_html(response_text)
+        # Convert to HTML without premium emojis
+        html_text = markdown_to_html.__wrapped__(response_text) if hasattr(markdown_to_html, '__wrapped__') else _guest_markdown_to_html(response_text)
 
         # Parse HTML to plain text and entities array (supporting ALL formatting tags like bold, custom_emoji, links, blockquotes)
         # httpx imported at top level
@@ -2089,10 +2098,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     continue
 
                 # Extract text — fastest possible path
+                txt = ""
                 try:
-                    txt = chunk.text
-                except (AttributeError, IndexError, ValueError):
-                    continue
+                    for part in chunk.candidates[0].content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            txt += part.text
+                        elif hasattr(part, 'executable_code') and part.executable_code:
+                            txt += f"\n\n```python\n{part.executable_code.code}\n```\n"
+                        elif hasattr(part, 'code_execution_result') and part.code_execution_result:
+                            txt += f"\n`Natija: {part.code_execution_result.output}`\n"
+                except Exception:
+                    try:
+                        txt = chunk.text
+                    except Exception:
+                        pass
+                
                 if not txt:
                     continue
 
@@ -2320,8 +2340,21 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
         response = await session.send_message(prompt)
 
         response_text = ""
-        if response and response.text:
-            response_text = response.text
+        if response:
+            try:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        response_text += part.text
+                    elif hasattr(part, 'executable_code') and part.executable_code:
+                        response_text += f"\n\n```python\n{part.executable_code.code}\n```\n"
+                    elif hasattr(part, 'code_execution_result') and part.code_execution_result:
+                        response_text += f"\n`Natija: {part.code_execution_result.output}`\n"
+            except Exception:
+                try:
+                    if response.text:
+                        response_text = response.text
+                except Exception:
+                    pass
 
         # Clean up special tags
         response_text = _RE_GUEST_REACTION.sub('', response_text)
