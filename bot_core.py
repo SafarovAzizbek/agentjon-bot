@@ -102,6 +102,8 @@ _RE_CODE_BLOCK = re.compile(r'```(\w*)\n?(.*?)\n?```', re.DOTALL)
 _RE_INLINE_CODE = re.compile(r'`([^`\n]+)`')
 _RE_MATH_BLOCK = re.compile(r'\$\$([^\$]+?)\$\$', re.DOTALL)
 _RE_MATH_INLINE = re.compile(r'\$([^\$\s\n][^\$]*?[^\$\s\n]|[^\$\s\n])\$')
+_RE_MATH_BLOCK_BRACKET = re.compile(r'\\\[(.*?)\\\]', re.DOTALL)
+_RE_MATH_INLINE_PAREN = re.compile(r'\\\((.*?)\\\)', re.DOTALL)
 _RE_SPOILER = re.compile(r'\|\|(.*?)\|\|', re.DOTALL)
 _RE_BULLETS = re.compile(r'(?:^|\n)\s*[\*\-]\s+(.+?)(?=\n|$)')
 _RE_HEADINGS = re.compile(r'(?:^|\n)(?:#{1,6})\s+(.+?)(?=\n|$)')
@@ -605,6 +607,8 @@ def markdown_to_html(text: str) -> str:
     # Math
     text = _RE_MATH_BLOCK.sub(r'<pre>\1</pre>', text)
     text = _RE_MATH_INLINE.sub(r'<code>\1</code>', text)
+    text = _RE_MATH_BLOCK_BRACKET.sub(r'<pre>\1</pre>', text)
+    text = _RE_MATH_INLINE_PAREN.sub(r'<code>\1</code>', text)
 
     # Spoilers
     text = _RE_SPOILER.sub(r'<tg-spoiler>\1</tg-spoiler>', text)
