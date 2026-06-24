@@ -888,17 +888,17 @@ def _get_user_global_memory(user_id: int) -> list[dict]:
     return []
 
 def _append_user_global_memory(user_id: int, chat_id: int, text: str, role: str):
-    """Append a concise message to user's global memory. Max 15 items."""
+    """Append a message to user's global memory. Optimized for 10k users."""
     if not supabase_client or not text or len(text) < 2: return
-    # Truncate text to save space
-    text = text[:150] + "..." if len(text) > 150 else text
+    # Max 1000 characters per message (enough for very rich context)
+    text = text[:1000] + "..." if len(text) > 1000 else text
     def _save():
         try:
             history = _get_user_global_memory(user_id)
             history.append({"c": chat_id, "t": text, "r": role})
-            # Keep only the last 15 items to save space
-            if len(history) > 15:
-                history = history[-15:]
+            # Keep the last 50 items for deeper memory
+            if len(history) > 50:
+                history = history[-50:]
             supabase_client.table('user_global_memory').upsert({
                 'user_id': user_id,
                 'history': history
