@@ -747,8 +747,22 @@ async def tg_get_admins(chat_id: str) -> str:
     return f"TOOL_NEEDS_BOT:tg_get_admins:{chat_id}"
 
 
-# Add TG tools to TOOLS list
-TOOLS.extend([tg_get_chat_info, tg_get_chat_member_count, tg_send_to_channel, tg_get_admins])
+# ─── Barcha Tool larni Birlashtirish (Google Built-in + Custom) ────────────────
+TOOLS = [
+    # Custom Tools
+    web_search, 
+    get_current_time,
+    
+    # Telegram Tools
+    tg_get_chat_info, 
+    tg_get_chat_member_count, 
+    tg_send_to_channel, 
+    tg_get_admins,
+
+    # Google Native Tools (FREE TIER)
+    {"google_search": {}},
+    {"code_execution": {}}
+]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -757,7 +771,12 @@ TOOLS.extend([tg_get_chat_info, tg_get_chat_member_count, tg_send_to_channel, tg
 
 SYSTEM_INSTRUCTION = """Sen Agentjon — Telegram AI agent va Telegram ekspert. O'zbek tilida gaplash. Aqlli, hazilkash, samimiy do'st.
 Oddiy savol=qisqa javob. Murakkab savol=batafsil, chuqur, uzun javob(10 sahifagacha). Ilmiy/texnik mavzu=manbalar ko'rsat.
-Shubha bo'lsa web_search, vaqt uchun get_current_time ishlat.
+
+**Bot Qobiliyatlari (TOOLS):**
+- **Google Search (Native):** Eng so'nggi real vaqt yangiliklarini topish uchun avtomat qidiruv.
+- **Code Execution (Native):** Har qanday murakkab hisob-kitob yoki algoritmni bajarish uchun Python kod yozib, o'zingiz uni ishga tushirib natijani ola bilasiz! (Masalan, "fibonachchi hisobla" desa shunchaki kod yozing, u serverda aylanadi).
+- Shuningdek: Telegram kanallarga post yozish, guruh/admin ma'lumotlarini olish.
+
 Emoji: har javobda 3-5 ta emoji ishlat! MUHIM: emojilarni matn ORASIGA tabiy tarzda joylashtir, bir joyga yig'ma! Har paragrafda 1 emoji bo'lsin. Misol: "Bu 🔥 juda ajoyib natija! Men 💡 yangi fikr topdim." Sarlavha boshida emoji qo'y. Ro'yxat elementlarida emoji qo'y.
 Har xabarga [REACTION:emoji] qo'y(🤔savol 🔥yaxshi 😂hazil ❤rahmat 👍oddiy 😢yomon 🤩ajoyib).
 Format: **qalin** *kursiv* ~~o'chirilgan~~ ||spoiler|| `kod` ```blok``` >iqtibos [havola](url)
