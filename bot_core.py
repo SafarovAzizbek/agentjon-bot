@@ -1556,7 +1556,7 @@ async def cmd_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
         i = 0
         while _thinking[0]:
             try:
-                await send_draft(context.bot, chat_id, frames[i % len(frames)], draft_id, message_thread_id=thread_id)
+                await safe_edit_message(context.bot, chat_id, draft_id, frames[i % len(frames)])
             except Exception:
                 pass
             i += 1
@@ -1645,7 +1645,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # AI response with streaming
         user_id = update.effective_user.id if update.effective_user else 0
         session = get_chat_session(user_id, None)
-        prompt = f"[{user_name}] (Guest — bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM oddiy emoji ishlat - faqat 1-2 ta!): {text}"
+        prompt = f"[{user_name}] (Guest — bot a'zo bo'lmagan chatdan.): {text}"
 
         response_text = ""
         stream = await session.send_message_stream(prompt)
@@ -1673,8 +1673,8 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if not response_text:
             response_text = "Savol bering, javob beraman! 😊"
 
-        # Convert to HTML without premium emojis
-        html_text = markdown_to_html.__wrapped__(response_text) if hasattr(markdown_to_html, '__wrapped__') else _guest_markdown_to_html(response_text)
+        # Convert to HTML with premium emojis
+        html_text = markdown_to_html(response_text)
 
         # Parse HTML to plain text and entities array (supporting ALL formatting tags like bold, custom_emoji, links, blockquotes)
         # httpx imported at top level
@@ -1915,7 +1915,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         while _thinking_state[0] and i < max_iters:
             frame = all_frames[i % len(all_frames)]
             try:
-                await send_draft(context.bot, chat_id, frame, draft_id, message_thread_id=thread_id)
+                await safe_edit_message(context.bot, chat_id, draft_id, frame)
             except Exception:
                 pass
             i += 1
