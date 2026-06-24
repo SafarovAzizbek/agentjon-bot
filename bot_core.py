@@ -22,7 +22,7 @@ from telegram.ext import (
 from telegram.error import BadRequest, RetryAfter, Forbidden
 from google import genai
 from google.genai import types
-from duckduckgo_search import DDGS
+
 import httpx
 from supabase import create_client, Client
 
@@ -693,25 +693,7 @@ async def get_current_time() -> str:
     return datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S UZT')
 
 
-async def web_search(query: str) -> str:
-    """Perform a web search using DuckDuckGo to find the latest information."""
-    try:
-        loop = asyncio.get_running_loop()
-        results = await loop.run_in_executor(
-            None, lambda: list(DDGS().text(query, max_results=5))
-        )
-        if not results:
-            return "No results found."
-        return "\n\n".join(
-            f"Title: {r['title']}\nURL: {r['href']}\nSnippet: {r['body']}"
-            for r in results
-        )
-    except Exception as e:
-        logger.error("DuckDuckGo search error: %s", e)
-        return f"Search error: {e}"
-
-
-TOOLS = [web_search, get_current_time]
+TOOLS = [get_current_time]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -754,7 +736,6 @@ async def tg_get_admins(chat_id: str) -> str:
 # ─── Barcha Tool larni Birlashtirish (Google Built-in + Custom) ────────────────
 TOOLS = [
     # Custom Tools
-    web_search, 
     get_current_time,
     
     # Telegram Tools
@@ -1222,20 +1203,7 @@ async def execute_tool_calls(function_calls, bot=None, chat_id=None, reply_msg=N
     """Execute tool calls and return function response parts."""
     responses = []
     for call in function_calls:
-        if call.name == "web_search":
-            query = call.args.get("query", "")
-            # Show search status
-            if bot and reply_msg and chat_id:
-                try:
-                    await bot.edit_message_text(
-                        chat_id=chat_id, message_id=reply_msg.message_id,
-                        text=f"🔍 Internetdan qidirilmoqda: <i>{query}</i>...",
-                        parse_mode='HTML',
-                    )
-                except Exception:
-                    pass
-            result = await web_search(query)
-        elif call.name == "get_current_time":
+        if call.name == "get_current_time":
             result = await get_current_time()
 
         # ── Telegram Management Tools ──
