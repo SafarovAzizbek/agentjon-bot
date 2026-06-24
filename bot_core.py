@@ -22,7 +22,7 @@ from telegram.ext import (
 from telegram.error import BadRequest, RetryAfter, Forbidden
 from google import genai
 from google.genai import types
-from ddgs import DDGS
+from duckduckgo_search import DDGS
 import httpx
 from supabase import create_client, Client
 
