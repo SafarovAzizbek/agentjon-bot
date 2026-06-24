@@ -874,6 +874,40 @@ def _deserialize_history(history_data: list[dict]) -> list[types.Content]:
     return res
 
 
+# ─── User Global Memory (Cross-Chat Context) ─────────────────────────────────
+
+def _get_user_global_memory(user_id: int) -> list[dict]:
+    """Fetch space-saving global memory for a user across all chats."""
+    if not supabase_client: return []
+    try:
+        res = supabase_client.table('user_global_memory').select('history').eq('user_id', user_id).execute()
+        if res.data and res.data[0].get('history'):
+            return res.data[0]['history']
+    except Exception as e:
+        logger.error("Failed to fetch global memory: %s", e)
+    return []
+
+def _append_user_global_memory(user_id: int, chat_id: int, text: str, role: str):
+    """Append a concise message to user's global memory. Max 15 items."""
+    if not supabase_client or not text or len(text) < 2: return
+    # Truncate text to save space
+    text = text[:150] + "..." if len(text) > 150 else text
+    def _save():
+        try:
+            history = _get_user_global_memory(user_id)
+            history.append({"c": chat_id, "t": text, "r": role})
+            # Keep only the last 15 items to save space
+            if len(history) > 15:
+                history = history[-15:]
+            supabase_client.table('user_global_memory').upsert({
+                'user_id': user_id,
+                'history': history
+            }).execute()
+        except Exception as e:
+            logger.error("Failed to save global memory: %s", e)
+    asyncio.create_task(asyncio.to_thread(_save))
+
+
 def get_chat_session(chat_id: int, message_thread_id: int | None = None):
     """Return an existing or new Gemini chat session with true LRU eviction + Supabase load."""
     key = f"{chat_id}_{message_thread_id}" if message_thread_id else str(chat_id)
@@ -1968,11 +2002,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # ── User identification + context note ──
         user_name = message.from_user.first_name if message.from_user else "Foydalanuvchi"
+        user_id = message.from_user.id if message.from_user else chat_id
         ctx_note = ""
         if not is_direct and not is_smart_reply:
             ctx_note = " (Guruhdagi o'zaro suhbat. Senga murojaat qilinmadi. Agar javobing bo'lmasa, faqat [IGNORE] deb yoz.)"
         elif is_smart_reply:
             ctx_note = " (Guruhda savol so'raldi. Qisqa va foydali javob ber. Agar javob bera olmasang [IGNORE].)"
+
+        # Save user message to global memory
+        if user_text:
+            _append_user_global_memory(user_id, chat_id, user_text, "u")
+
+        # Cross-Chat Context Injection (for private DMs)
+        if is_private:
+            global_mem = _get_user_global_memory(user_id)
+            if global_mem:
+                mem_str = "\n".join([f"[{m.get('r','u')} in chat {m.get('c','?')}]: {m.get('t','')}" for m in global_mem])
+                contents.append(
+                    f"[Maxfiy tizim eslatmasi: Bu foydalanuvchining boshqa guruhlar yoki chatlardagi oxirgi xotirasi:\n{mem_str}\nShularni yodda tutgan holda uning quyidagi xabariga munosabat bildir!]"
+                )
 
         if contact:
             contents.append(
@@ -2115,6 +2163,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # ── Save Session to Supabase ──
         if supabase_client:
+            user_id = message.from_user.id if message.from_user else chat_id
+            if response_text:
+                _append_user_global_memory(user_id, chat_id, response_text, "b")
+                
             try:
                 history_data = _serialize_history(session)
                 key = f"{chat_id}_{thread_id}" if thread_id else str(chat_id)
