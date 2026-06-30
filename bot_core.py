@@ -676,11 +676,9 @@ def markdown_to_html(text: str) -> str:
 def _guest_markdown_to_html(text: str) -> str:
     """Like markdown_to_html but WITHOUT premium emoji conversion.
     Used for guest mode where custom emojis don't work."""
-    # Run the same conversion pipeline but skip emojis_to_premium at the end
-    # Quick approach: call markdown_to_html then strip tg-emoji tags
     html = markdown_to_html(text)
-    # Remove <tg-emoji emoji-id="...">X</tg-emoji> -> X (keep the inner emoji)
-    html = _RE_TG_EMOJI.sub(lambda m: m.group(0).split('>')[1].split('<')[0] if '>' in m.group(0) else m.group(0), html)
+    # Strip all <tg-emoji emoji-id="...">X</tg-emoji> -> X (keep inner emoji)
+    html = _RE_TG_EMOJI_EXTRACT.sub(r'\2', html)
     return html
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1052,7 +1050,7 @@ async def send_draft(bot, chat_id, text, draft_id, message_thread_id=None):
         logger.debug("send_draft failed (chat=%s): %s", chat_id, e)
 
 
-async def send_final(bot, chat_id, text, reply_to_message_id=None, message_thread_id=None):
+async def send_final(bot, chat_id, text, reply_to_message_id=None, message_thread_id=None, is_guest=False):
     """Send the final permanent message.
     Priority: 1) sendRichMessage (long text), 2) entities (premium emoji), 3) HTML, 4) plain text.
     Returns Message object.
@@ -1066,7 +1064,7 @@ async def send_final(bot, chat_id, text, reply_to_message_id=None, message_threa
             blocks = _markdown_to_rich_blocks(text)
             payload = {
                 "chat_id": chat_id,
-                "rich_message": {"blocks": blocks},
+                "rich_content": {"blocks": blocks},
             }
             if reply_to_message_id:
                 payload["reply_parameters"] = {"message_id": reply_to_message_id}
@@ -1080,8 +1078,11 @@ async def send_final(bot, chat_id, text, reply_to_message_id=None, message_threa
         except Exception as e:
             logger.debug("sendRichMessage failed, falling back: %s", e)
 
-    # Convert markdown to HTML with premium emojis
-    html_text = markdown_to_html(text)
+    # Convert markdown to HTML — guest mode strips premium emojis
+    if is_guest:
+        html_text = _guest_markdown_to_html(text)
+    else:
+        html_text = markdown_to_html(text)
 
     # Try entities approach FIRST (works in DM AND groups for premium emoji)
     from telegram import MessageEntity
@@ -1274,21 +1275,52 @@ async def _exec_tg_get_admins(bot, target):
 #  PREMIUM REPLY HELPER
 # ══════════════════════════════════════════════════════════════════════════════
 
-async def premium_reply(message, text: str):
+async def premium_reply(message, text: str, is_guest: bool = False):
     """Reply with premium emojis — converts ALL emojis to custom premium versions.
-    Uses entities API for custom_emoji support, falls back to HTML, then plain text."""
+    Uses entities API for custom_emoji support, falls back to HTML, then plain text.
+    If is_guest=True, skips premium emoji conversion."""
+    if is_guest:
+        # Guest mode: strip premium emojis, use plain HTML
+        html_text = _guest_markdown_to_html(text)
+        try:
+            await message.reply_text(html_text, parse_mode='HTML')
+            return
+        except Exception:
+            try:
+                await message.reply_text(text)
+            except Exception:
+                pass
+            return
+
     # Step 1: Convert emojis to premium tg-emoji tags
     premium_text = emojis_to_premium(text)
     # Step 2: Parse to plain text + entities (handles bold, italic, custom_emoji etc.)
     plain_text, entities = parse_html_to_entities(premium_text)
-    
+
+    from telegram import MessageEntity
     if entities:
+        # Convert dict entities to MessageEntity objects for Telegram API
+        tg_entities = []
+        for e in entities:
+            kwargs = {"type": e["type"], "offset": e["offset"], "length": e["length"]}
+            if e.get("custom_emoji_id"):
+                kwargs["custom_emoji_id"] = str(e["custom_emoji_id"])
+            if e.get("url"):
+                kwargs["url"] = e["url"]
+            tg_entities.append(MessageEntity(**kwargs))
         try:
-            await message.reply_text(plain_text, entities=entities)
+            await message.reply_text(plain_text, entities=tg_entities)
             return
         except Exception:
-            pass
-    
+            # Retry without custom_emoji entities
+            non_emoji = [e for e in tg_entities if e.type != MessageEntity.CUSTOM_EMOJI]
+            if non_emoji:
+                try:
+                    await message.reply_text(plain_text, entities=non_emoji)
+                    return
+                except Exception:
+                    pass
+
     # Fallback: HTML with premium tags
     try:
         await message.reply_text(premium_text, parse_mode='HTML')
@@ -1598,7 +1630,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # AI response with streaming
         user_id = update.effective_user.id if update.effective_user else 0
         session = get_chat_session(user_id, None)
-        prompt = f"[{user_name}] (Guest so'rov - bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM emoji ishlat - faqat 1-2 ta oddiy Unicode emoji, matn sifatiga qattiq e'tibor ber!): {text}"
+        prompt = f"[{user_name}] (Guest rejim. Qisqa va sifatli javob ber. Oddiy Unicode emojilar ishlat - lekin ko'p emas, 2-3 ta kifoya): {text}"
 
         response_text = ""
         stream = await session.send_message_stream(prompt)
@@ -2225,7 +2257,7 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
     try:
         # Generate AI response - tell AI to use FEWER emojis in guest mode
-        prompt = f"[{user_name}] (Guest so'rov - bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM emoji ishlat - faqat 1-2 ta oddiy Unicode emoji, matn sifatiga qattiq e'tibor ber!): {text}"
+        prompt = f"[{user_name}] (Guest rejim. Qisqa va sifatli javob ber. Oddiy Unicode emojilar ishlat - lekin ko'p emas, 2-3 ta kifoya): {text}"
         session = get_chat_session(update.effective_user.id if update.effective_user else 0, None)  # Per-user guest session
         response = await session.send_message(prompt)
 
