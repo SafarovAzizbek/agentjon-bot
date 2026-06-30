@@ -147,7 +147,7 @@ def _get_emoji_regex():
     _emoji_regex = re.compile(pattern)
     return _emoji_regex
 
-_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB (Render free = 512MB RAM, protect from OOM)
+_MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB (Gemini inline limit)
 
 def _load_emoji_map():
     """Load emoji -> [custom_emoji_id, ...] from JSON and Supabase."""
@@ -585,7 +585,7 @@ def markdown_to_html(text: str) -> str:
     tg_emojis = []
     def save_tg_emoji(m):
         tg_emojis.append(m.group(0))
-        return f"@@TGEMOJI{len(tg_emojis)-1}__"
+        return f"@@TGEMOJI{len(tg_emojis)-1}@@"
     text = _RE_TG_EMOJI.sub(save_tg_emoji, text)
 
     text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
@@ -595,11 +595,11 @@ def markdown_to_html(text: str) -> str:
 
     def save_code_block(m):
         code_blocks.append((m.group(1) or "", m.group(2)))
-        return f"@@CODEBLOCK{len(code_blocks)-1}__"
+        return f"@@CODEBLOCK{len(code_blocks)-1}@@"
 
     def save_inline_code(m):
         inline_codes.append(m.group(1))
-        return f"@@INLINE{len(inline_codes)-1}__"
+        return f"@@INLINE{len(inline_codes)-1}@@"
 
     text = _RE_CODE_BLOCK.sub(save_code_block, text)
     text = _RE_INLINE_CODE.sub(save_inline_code, text)
@@ -631,11 +631,11 @@ def markdown_to_html(text: str) -> str:
     a_tags = []
     def save_a_tag(m):
         a_tags.append(m.group(0))
-        return f"@@ATAG{len(a_tags)-1}__"
+        return f"@@ATAG{len(a_tags)-1}@@"
     text = _RE_A_TAG.sub(save_a_tag, text)
     text = _RE_ITALIC_UNDERSCORES.sub(r'<i>\1</i>', text)
     for i, tag in enumerate(a_tags):
-        text = text.replace(f"@@ATAG{i}__", tag)
+        text = text.replace(f"@@ATAG{i}@@", tag)
 
     # Strikethrough
     text = _RE_STRIKETHROUGH.sub(r'<s>\1</s>', text)
@@ -658,14 +658,14 @@ def markdown_to_html(text: str) -> str:
             r = f'<pre><code class="language-{lang}">{code}</code></pre>'
         else:
             r = f'<pre><code>{code}</code></pre>'
-        text = text.replace(f"@@CODEBLOCK{i}__", r)
+        text = text.replace(f"@@CODEBLOCK{i}@@", r)
 
     for i, code in enumerate(inline_codes):
-        text = text.replace(f"@@INLINE{i}__", f'<code>{code}</code>')
+        text = text.replace(f"@@INLINE{i}@@", f'<code>{code}</code>')
 
     # Restore premium tg-emoji tags
     for i, emoji_tag in enumerate(tg_emojis):
-        text = text.replace(f"@@TGEMOJI{i}__", emoji_tag)
+        text = text.replace(f"@@TGEMOJI{i}@@", emoji_tag)
 
     # Convert remaining regular emojis to premium — DOIM, hamma joyda
     text = emojis_to_premium(text)
@@ -693,7 +693,6 @@ async def get_current_time() -> str:
     return datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S UZT')
 
 
-TOOLS = [get_current_time]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -909,7 +908,7 @@ def get_chat_session(chat_id: int, message_thread_id: int | None = None):
             system_instruction=SYSTEM_INSTRUCTION,
             tools=TOOLS,
             temperature=0.7,
-            max_output_tokens=4096,
+            max_output_tokens=8192,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
                 disable=True
             ),
@@ -1687,7 +1686,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 id="guest_error",
                 title="Agentjon",
                 input_message_content=InputTextMessageContent(
-                    message_text=f"🚀 Salom! Men Agentjon (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
+                    message_text="🚀 Salom! Men Agentjon (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
                 ),
             )
             await context.bot.answer_guest_query(
@@ -1704,7 +1703,7 @@ _AUTO_REPLY_COOLDOWN = 30  # 30 soniya - faol muloqot uchun
 
 
 def _should_auto_reply(chat_id: int, text: str) -> bool:
-    """Guruhda avtomatik javob berish kerakmi - aqlli filtr (Agentjon 2.0)."""
+    """Guruhda avtomatik javob berish kerakmi - aqlli filtr."""
     now = time.time()
 
     # Cooldown tekshirish
@@ -1793,9 +1792,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     should_respond = is_direct or is_smart_reply
     if not should_respond:
         return
-    if should_respond:
-        asyncio.create_task(set_premium_reaction(message, "🤔"))
-        asyncio.create_task(_safe_typing(context.bot, chat_id))
+
+    asyncio.create_task(set_premium_reaction(message, "🤔"))
+    asyncio.create_task(_safe_typing(context.bot, chat_id))
 
     # ── Streaming (Bot API 9.3+) ──
     original_message_id = message.message_id
@@ -1831,6 +1830,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         async def _dl(file_id):
             f = await context.bot.get_file(file_id)
             return bytes(await f.download_as_bytearray())
+
+        # ── Reply-to media fallback ──
+        if not (photo or voice or document or video or video_note or audio) and message.reply_to_message:
+            rm = message.reply_to_message
+            if rm.photo: photo = rm.photo
+            elif rm.voice: voice = rm.voice
+            elif rm.audio: audio = rm.audio
+            elif rm.video: video = rm.video
+            elif rm.video_note: video_note = rm.video_note
+            elif rm.document: document = rm.document
 
         if photo:
             file_size = photo[-1].file_size or 0
@@ -2119,23 +2128,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.error("Failed to start Supabase save task: %s", e)
 
     except Forbidden as e:
-        _thinking_state[0] = False
-        if thinking_task: thinking_task.cancel()
         logger.warning("Forbidden in chat=%s: %s", chat_id, e)
         return
     except Exception as e:
-        _thinking_state[0] = False
-        if thinking_task: thinking_task.cancel()
         logger.exception("Error in handle_message: %s", e)
-        if reply_message and isinstance(reply_message, Message):
-            try:
-                await safe_edit_message(
-                    context.bot, chat_id, reply_message.message_id,
-                    "Xatolik yuz berdi. Iltimos, birozdan so'ng qayta urinib ko'ring.",
-                )
-            except Exception:
-                pass
+        try:
+            await premium_reply(message, "❌ Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.")
+        except Exception:
+            pass
         asyncio.create_task(set_premium_reaction(message, "👎"))
+    finally:
+        # ALWAYS stop thinking animation
+        if _thinking_state[0]:
+            _thinking_state[0] = False
+        if thinking_task and not thinking_task.done():
+            thinking_task.cancel()
 
 
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2168,80 +2175,17 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         try:
             session = get_chat_session(chat_id, update.message.message_thread_id)
             response_text = ""
-            try:
-                stream = await session.send_message_stream(current_prompt)
-                tool_calls = []
+            stream = await session.send_message_stream(prompt)
+            async for chunk in stream:
+                try:
+                    if chunk.text:
+                        response_text += chunk.text
+                except Exception:
+                    pass
 
-                async for chunk in stream:
-                    # Tool calls
-                    if chunk.function_calls:
-                        tool_calls.extend(chunk.function_calls)
-                        continue
-
-                    # Extract text - fastest possible path
-                    txt = ""
-                    try:
-                        for part in chunk.candidates[0].content.parts:
-                            if hasattr(part, 'text') and part.text:
-                                txt += part.text
-                            elif hasattr(part, 'executable_code') and part.executable_code:
-                                txt += f"\n\n```python\n{part.executable_code.code}\n```\n"
-                            elif hasattr(part, 'code_execution_result') and part.code_execution_result:
-                                txt += f"\n`Natija: {part.code_execution_result.output}`\n"
-                    except Exception:
-                        try:
-                            txt = chunk.text
-                        except Exception:
-                            pass
-                    
-                    if not txt:
-                        continue
-
-                    response_text += txt
-
-                    # Stop thinking animation on first real text
-                    if _thinking_state[0]:
-                        _thinking_state[0] = False
-                        if thinking_task:
-                            thinking_task.cancel()
-                            
-                        # Ensure draft is clean
-                        try:
-                            await safe_edit_message(context.bot, chat_id, draft_id, " ")
-                        except Exception:
-                            pass
-
-                    # Skip special commands instantly
-                    s = response_text.lstrip()
-                    if s[:8] == "[IGNORE]" or s[:11] == "[DELETE_MSG":
-                        continue
-
-                    # Reaction - instant fire-and-forget
-                    if "[REACTION:" in txt:
-                        rmatch = _RE_REACTION.search(response_text)
-                        if rmatch:
-                            asyncio.create_task(set_premium_reaction(message, rmatch.group(1).strip()))
-                            response_text = response_text.replace(rmatch.group(0), "")
-
-                    # 100% LIVE DRAFT - every chunk, 0 delay
-                    new_len = len(response_text)
-                    if new_len - last_draft_len >= 30 and response_text.strip():
-                        asyncio.create_task(send_draft(context.bot, chat_id, response_text, draft_id, message_thread_id=thread_id))
-                        last_draft_len = new_len
-            except Exception as e:
-                logger.error("Gemini API Error: %s", e)
-                if should_respond:
-                    await premium_reply(message, f"❌ Uzr, AI xizmatida xatolik yuz berdi: `{e}`")
-                break
-            finally:
-                if _thinking_state[0]:
-                    _thinking_state[0] = False
-                    if thinking_task:
-                        thinking_task.cancel()
-                    try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=draft_id)
-                    except Exception:
-                        pass
+            # Clean special tags
+            response_text = _RE_GUEST_REACTION.sub('', response_text)
+            response_text = response_text.replace('[IGNORE]', '').replace('[DELETE_MSG]', '').strip()
 
             if response_text:
                 await send_final(context.bot, chat_id, response_text,
@@ -2336,7 +2280,7 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
                 id="guest_error",
                 title="Agentjon",
                 input_message_content=InputTextMessageContent(
-                    message_text=f"🚀 Salom! Men Agentjon (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
+                    message_text="🚀 Salom! Men Agentjon (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
                 ),
             )
             await context.bot.answer_guest_query(
