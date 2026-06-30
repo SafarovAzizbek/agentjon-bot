@@ -1834,7 +1834,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_smart_reply = _should_auto_reply(chat_id, text_content)
 
     # ── Content extraction ──
-    user_text = message.text
+    user_text = text_content
     photo = message.photo
     voice = message.voice
     video = message.video
@@ -1949,7 +1949,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(_safe_typing(context.bot, chat_id, 'record_voice'))
             voice_bytes = await _dl(voice.file_id)
             contents.append(types.Part.from_bytes(data=voice_bytes, mime_type="audio/ogg"))
-            contents.append("Ushbu ovozli xabarni eshitib, unga o'zbek tilida javob ber.")
+            contents.append(message.caption or "Ushbu ovozli xabarni eshitib, unga o'zbek tilida javob ber.")
 
         elif document:
             file_size = document.file_size or 0
@@ -1997,7 +1997,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             contents.append(types.Part.from_bytes(data=audio_bytes, mime_type=audio.mime_type or "audio/mpeg"))
             contents.append(message.caption or "Ushbu audio faylni eshitib, unga javob ber.")
 
-        # ── User identification + context note ──
+        # Replied Message Context
+        if message.reply_to_message:
+            replied_text = message.reply_to_message.text or message.reply_to_message.caption or ""
+            if replied_text:
+                contents.append(f"[Foydalanuvchi quyidagi xabarga javob (reply) yozmoqda:\n\"{replied_text}\"]")
+
+        # User identification + context note
         user_name = message.from_user.first_name if message.from_user else "Foydalanuvchi"
         user_id = message.from_user.id if message.from_user else chat_id
         ctx_note = ""
