@@ -46,7 +46,7 @@ except Exception:
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
@@ -743,10 +743,6 @@ TOOLS = [
     tg_get_chat_member_count, 
     tg_send_to_channel, 
     tg_get_admins,
-
-    # Google Native Tools (FREE TIER)
-    {"google_search": {}},
-    {"code_execution": {}}
 ]
 
 
