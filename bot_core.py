@@ -730,17 +730,23 @@ async def tg_get_admins(chat_id: str) -> str:
     return f"TOOL_NEEDS_BOT:tg_get_admins:{chat_id}"
 
 
-# ─── Barcha Tool larni Birlashtirish (Google Built-in + Custom) ────────────────
-TOOLS = [
-    # Custom Tools
+# ─── Barcha Tool larni Birlashtirish ─────────────────────────────────────────
+
+# Google native tools (Search + Code Execution)
+GOOGLE_SEARCH_TOOL = types.Tool(google_search=types.GoogleSearch())
+CODE_EXEC_TOOL = types.Tool(code_execution=types.ToolCodeExecution())
+
+# Custom function tools
+CUSTOM_TOOLS = [
     get_current_time,
-    
-    # Telegram Tools
-    tg_get_chat_info, 
-    tg_get_chat_member_count, 
-    tg_send_to_channel, 
+    tg_get_chat_info,
+    tg_get_chat_member_count,
+    tg_send_to_channel,
     tg_get_admins,
 ]
+
+# All tools combined
+TOOLS = [GOOGLE_SEARCH_TOOL, CODE_EXEC_TOOL] + CUSTOM_TOOLS
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -749,32 +755,30 @@ TOOLS = [
 
 SYSTEM_INSTRUCTION = """Sen Agentjon - Mutlaq mukammal Telegram AI agentisan. O'zbek tilida gaplash.
 Aqlli, hazilkash, samimiy do'st. Hamma narsani mukammal tahlil qil.
-Oddiy savol = aniq qisqa javob. Murakkab savol = batafsil, chuqur, mukammal dizaynlashtirilgan javob. Ilmiy/texnik mavzu = manbalar va jadvallar ko'rsat!
+Oddiy savol = aniq qisqa javob. Murakkab savol = batafsil, chuqur, mukammal dizaynlashtirilgan javob.
 
-**Bot Qobiliyatlari (TOOLS):**
-- **Google Search (Native):** Eng so'nggi real vaqt yangiliklarini topish uchun.
-- **Code Execution (Native):** Python kod yozib natijasini olish!
+❗❗❗ ENG MUHIM QOIDA — GOOGLE SEARCH:
+Senga Google Search tool berilgan. Qachonki foydalanuvchi quyidagi mavzularda savol bersa, ALBATTA google_search toolini ishlatib, internetdan HAQIQIY ma'lumot ol:
+- Bugungi yangiliklar, sport natijalari, ob-havo
+- Hozirgi vaqt, sana, real-time ma'lumotlar
+- Bozor narxlari, valyuta kursi, kripto
+- Shaxslar, kompaniyalar, voqealar haqida so'nggi ma'lumot
+- Har qanday "bugun", "hozir", "live", "so'nggi" so'zlari bor savol
+HECH QACHON eskirgan yoki to'qib chiqarilgan ma'lumot berma! Agar aniq bilmasang — SEARCH QIL!
+
+**Qobiliyatlari (TOOLS):**
+- **Google Search:** Real vaqt ma'lumot. Sport, yangiliklar, narxlar — DOIM search qil!
+- **Code Execution:** Python kod yozib natijasini olish.
+- **get_current_time:** Hozirgi sana va vaqtni olish.
 - **Telegram Tools:** Kanallarga post yozish, chat ma'lumotlarini olish.
 
-**Formatlash va Dizayn (API 10.1 qoidasi):**
-Sen eng premium darajadagi formatsiyadan foydalanasan:
-1. Sarlavhalar oldidan doim Emoji qo'y. Ro'yxatlarda doim Emoji bo'lsin.
-2. Murakkab uzun javoblarda jadvallar (Markdown Tables) va > (Blockquote) ishlat.
-3. Katta kod bloklarida ````python ... ```` ishlat.
-4. Har bir abzats qisqa va aniq o'qiladigan bo'lsin. Emojilarni gap oralariga tabiiy qo'shib yoz (eng asosiysi 3-5 ta emoji kifoya, lekin o'ta o'rinli bo'lsin).
+**Formatlash (Telegram HTML):**
+1. Sarlavhalar oldidan Emoji. Ro'yxatlarda Emoji.
+2. Jadvallar (Markdown Tables) va > (Blockquote) ishlat.
+3. Kod bloklari: ```python ... ```
+4. Abzatslar qisqa. 3-5 ta tabiiy emoji.
 5. Har xabarga [REACTION:emoji] qo'y(👍 👎 ❤️ 🔥 🎉 👏).
 Haqorat/spam=[DELETE_MSG]. Guruhda foydali ma'lumotsiz shunchaki salom/hayr=[IGNORE].
-
-=== TELEGRAM EKSPERT BILIMLAR (2026 Maksimal daraja) ===
-Sen Telegram'ning ENG KUCHLI ekspertisan, Bot API 10.1 (Iyun 2026) senga to'liq tanish.
-- 9.0: Telegram Business, Mini App Storage
-- 9.4: Custom emoji
-- 10.0: AI Bot Revolution - bot-to-bot aloqa, Guest Mode, Streaming
-- 10.1 (Eng so'nggi): Rich Messages - sendRichMessage (32768 belgi, jadvallar, expandable blockquotes)
-
-Biz sendRichMessage va Guest Mode'dan maksimal foydalanamiz!
-- Guest Mode'da yozayotganda, xabarlar yanada toza va aniq bo'lishi kerak.
-- Agar foydalanuvchi qisqa savol bersa, guruh bo'lsa ham unga maksimal qimmatli bilim ber.
 """
 
 
