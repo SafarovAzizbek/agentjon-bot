@@ -750,7 +750,7 @@ TOOLS = [
 #  SYSTEM PROMPT
 # ══════════════════════════════════════════════════════════════════════════════
 
-SYSTEM_INSTRUCTION = """Sen Agentjon 2.0 - Mutlaq mukammal Telegram AI agentisan. O'zbek tilida gaplash.
+SYSTEM_INSTRUCTION = """Sen Agentjon - Mutlaq mukammal Telegram AI agentisan. O'zbek tilida gaplash.
 Aqlli, hazilkash, samimiy do'st. Hamma narsani mukammal tahlil qil.
 Oddiy savol = aniq qisqa javob. Murakkab savol = batafsil, chuqur, mukammal dizaynlashtirilgan javob. Ilmiy/texnik mavzu = manbalar va jadvallar ko'rsat!
 
@@ -1499,18 +1499,12 @@ async def cmd_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     async def _anim():
         frames = [
-            "📝 Post yozilmoqda...",
-            "✨ Kreativ fikr shakllanmoqda...",
-            "🎨 Dizayn yaratilmoqda...",
-            "🔥 Premium post tayyor bo'lmoqda...",
-            "💎 Har bir so'z sayqallanmoqda...",
-            "🪄 Sehrgar ishlamoqda...",
-            "🎭 Matn jonlanmoqda...",
-            "🌟 Yulduzli post yaratilmoqda...",
-            "📐 Mukammal struktura qurilmoqda...",
-            "🎪 Ajoyib narsa chiqadi!",
-            "⚡ Energiya sochilmoqda...",
-            "🏆 Eng zo'r post bo'ladi!",
+            "📡 Ma'lumot qabul qilinmoqda...",
+            "🧠 Mantiqiy tahlil boshlandi...",
+            "🔍 Kontekst o'rganilmoqda...",
+            "💡 Yechim topilmoqda...",
+            "✍️ Eng mukammal javob shakllantirilmoqda...",
+            "🚀 Javob tayyor, yuborilmoqda..."
         ]
         random.shuffle(frames)
         i = 0
@@ -1693,7 +1687,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 id="guest_error",
                 title="Agentjon",
                 input_message_content=InputTextMessageContent(
-                    message_text=f"🚀 Salom! Men Agentjon 2.0 (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
+                    message_text=f"🚀 Salom! Men Agentjon (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
                 ),
             )
             await context.bot.answer_guest_query(
@@ -2261,7 +2255,7 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
                 id="guest_error",
                 title="Agentjon",
                 input_message_content=InputTextMessageContent(
-                    message_text=f"🚀 Salom! Men Agentjon 2.0 (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
+                    message_text=f"🚀 Salom! Men Agentjon (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
                 ),
             )
             await context.bot.answer_guest_query(
