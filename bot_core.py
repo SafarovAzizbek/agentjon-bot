@@ -1791,6 +1791,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── React + typing (fire-and-forget — 0 blocking) ──
     should_respond = is_direct or is_smart_reply
+    if not should_respond:
+        return
     if should_respond:
         asyncio.create_task(set_premium_reaction(message, "🤔"))
         asyncio.create_task(_safe_typing(context.bot, chat_id))
@@ -1958,59 +1960,87 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.warning("Tool loop exceeded max iterations (5) for chat=%s", chat_id)
                 break
 
-            stream = await session.send_message_stream(current_prompt)
-            tool_calls = []
+            try:
+                stream = await session.send_message_stream(current_prompt)
+                tool_calls = []
 
-            async for chunk in stream:
-                # Tool calls
-                if chunk.function_calls:
-                    tool_calls.extend(chunk.function_calls)
-                    continue
+                async for chunk in stream:
+                    # Tool calls
+                    if chunk.function_calls:
+                        tool_calls.extend(chunk.function_calls)
+                        continue
 
-                # Extract text — fastest possible path
-                txt = ""
-                try:
-                    for part in chunk.candidates[0].content.parts:
-                        if hasattr(part, 'text') and part.text:
-                            txt += part.text
-                        elif hasattr(part, 'executable_code') and part.executable_code:
-                            txt += f"\n\n```python\n{part.executable_code.code}\n```\n"
-                        elif hasattr(part, 'code_execution_result') and part.code_execution_result:
-                            txt += f"\n`Natija: {part.code_execution_result.output}`\n"
-                except Exception:
+                    # Extract text - fastest possible path
+                    txt = ""
                     try:
-                        txt = chunk.text
+                        for part in chunk.candidates[0].content.parts:
+                            if hasattr(part, 'text') and part.text:
+                                txt += part.text
+                            elif hasattr(part, 'executable_code') and part.executable_code:
+                                txt += f"
+
+```python
+{part.executable_code.code}
+```
+"
+                            elif hasattr(part, 'code_execution_result') and part.code_execution_result:
+                                txt += f"
+`Natija: {part.code_execution_result.output}`
+"
                     except Exception:
-                        pass
-                
-                if not txt:
-                    continue
+                        try:
+                            txt = chunk.text
+                        except Exception:
+                            pass
+                    
+                    if not txt:
+                        continue
 
-                response_text += txt
+                    response_text += txt
 
-                # Stop thinking animation on first real text
+                    # Stop thinking animation on first real text
+                    if _thinking_state[0]:
+                        _thinking_state[0] = False
+                        if thinking_task:
+                            thinking_task.cancel()
+                            
+                        # Ensure draft is clean
+                        try:
+                            await safe_edit_message(context.bot, chat_id, draft_id, " ")
+                        except Exception:
+                            pass
+
+                    # Skip special commands instantly
+                    s = response_text.lstrip()
+                    if s[:8] == "[IGNORE]" or s[:11] == "[DELETE_MSG":
+                        continue
+
+                    # Reaction - instant fire-and-forget
+                    if "[REACTION:" in txt:
+                        rmatch = _RE_REACTION.search(response_text)
+                        if rmatch:
+                            asyncio.create_task(set_premium_reaction(message, rmatch.group(1).strip()))
+                            response_text = response_text.replace(rmatch.group(0), "")
+
+                    # 100% LIVE DRAFT - every chunk, 0 delay
+                    new_len = len(response_text)
+                    if new_len - last_draft_len >= 30 and response_text.strip():
+                        asyncio.create_task(send_draft(context.bot, chat_id, response_text, draft_id, message_thread_id=thread_id))
+                        last_draft_len = new_len
+            except Exception as e:
+                logger.error("Gemini API Error: %s", e)
+                if should_respond:
+                    await premium_reply(message, f"❌ Uzr, AI xizmatida xatolik yuz berdi: `{e}`")
+                break
+            finally:
                 if _thinking_state[0]:
                     _thinking_state[0] = False
                     if thinking_task:
                         thinking_task.cancel()
-
-                # Skip special commands instantly
-                s = response_text.lstrip()
-                if s[:8] == "[IGNORE]" or s[:11] == "[DELETE_MSG":
-                    continue
-
-                # Reaction — instant fire-and-forget
-                if "[REACTION:" in txt:
-                    rmatch = _RE_REACTION.search(response_text)
-                    if rmatch:
-                        asyncio.create_task(set_premium_reaction(message, rmatch.group(1).strip()))
-                        response_text = response_text.replace(rmatch.group(0), "")
-
-                # ── 100% LIVE DRAFT — every chunk, 0 delay ──
-                new_len = len(response_text)
-                if new_len - last_draft_len >= 30 and response_text.strip():
-                    asyncio.create_task(send_draft(context.bot, chat_id, response_text, draft_id, message_thread_id=thread_id))
-                    last_draft_len = new_len
+                    try:
+                        await context.bot.delete_message(chat_id=chat_id, message_id=draft_id)
+                    except Exception:
+                        pass
 
             if not tool_calls:
                 break
@@ -2145,22 +2175,87 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         try:
             session = get_chat_session(chat_id, update.message.message_thread_id)
             response_text = ""
-            stream = await session.send_message_stream(prompt)
-            last_draft_len = 0
+            try:
+                stream = await session.send_message_stream(current_prompt)
+                tool_calls = []
 
-            async for chunk in stream:
-                has_text = False
-                if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
-                    for part in chunk.candidates[0].content.parts:
-                        if part.text:
-                            has_text = True
-                            break
-                if has_text and chunk.text:
-                    response_text += chunk.text
+                async for chunk in stream:
+                    # Tool calls
+                    if chunk.function_calls:
+                        tool_calls.extend(chunk.function_calls)
+                        continue
+
+                    # Extract text - fastest possible path
+                    txt = ""
+                    try:
+                        for part in chunk.candidates[0].content.parts:
+                            if hasattr(part, 'text') and part.text:
+                                txt += part.text
+                            elif hasattr(part, 'executable_code') and part.executable_code:
+                                txt += f"
+
+```python
+{part.executable_code.code}
+```
+"
+                            elif hasattr(part, 'code_execution_result') and part.code_execution_result:
+                                txt += f"
+`Natija: {part.code_execution_result.output}`
+"
+                    except Exception:
+                        try:
+                            txt = chunk.text
+                        except Exception:
+                            pass
+                    
+                    if not txt:
+                        continue
+
+                    response_text += txt
+
+                    # Stop thinking animation on first real text
+                    if _thinking_state[0]:
+                        _thinking_state[0] = False
+                        if thinking_task:
+                            thinking_task.cancel()
+                            
+                        # Ensure draft is clean
+                        try:
+                            await safe_edit_message(context.bot, chat_id, draft_id, " ")
+                        except Exception:
+                            pass
+
+                    # Skip special commands instantly
+                    s = response_text.lstrip()
+                    if s[:8] == "[IGNORE]" or s[:11] == "[DELETE_MSG":
+                        continue
+
+                    # Reaction - instant fire-and-forget
+                    if "[REACTION:" in txt:
+                        rmatch = _RE_REACTION.search(response_text)
+                        if rmatch:
+                            asyncio.create_task(set_premium_reaction(message, rmatch.group(1).strip()))
+                            response_text = response_text.replace(rmatch.group(0), "")
+
+                    # 100% LIVE DRAFT - every chunk, 0 delay
                     new_len = len(response_text)
                     if new_len - last_draft_len >= 30 and response_text.strip():
-                        asyncio.create_task(send_draft(context.bot, chat_id, response_text, welcome_draft_id))
+                        asyncio.create_task(send_draft(context.bot, chat_id, response_text, draft_id, message_thread_id=thread_id))
                         last_draft_len = new_len
+            except Exception as e:
+                logger.error("Gemini API Error: %s", e)
+                if should_respond:
+                    await premium_reply(message, f"❌ Uzr, AI xizmatida xatolik yuz berdi: `{e}`")
+                break
+            finally:
+                if _thinking_state[0]:
+                    _thinking_state[0] = False
+                    if thinking_task:
+                        thinking_task.cancel()
+                    try:
+                        await context.bot.delete_message(chat_id=chat_id, message_id=draft_id)
+                    except Exception:
+                        pass
 
             if response_text:
                 await send_final(context.bot, chat_id, response_text,
