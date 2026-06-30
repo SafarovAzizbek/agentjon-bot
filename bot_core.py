@@ -108,7 +108,7 @@ _RE_SPOILER = re.compile(r'\|\|(.*?)\|\|', re.DOTALL)
 _RE_BULLETS = re.compile(r'(?:^|\n)\s*[\*\-]\s+(.+?)(?=\n|$)')
 _RE_HEADINGS = re.compile(r'(?:^|\n)(?:#{1,6})\s+(.+?)(?=\n|$)')
 _RE_BOLD_STARS = re.compile(r'\*\*(.*?)\*\*', re.DOTALL)
-_RE_BOLD_UNDERSCORES = re.compile(r'(?<!_)__(?!_)(?!CODEBLOCK|INLINE|TGEMOJI)(.*?)(?<!_)__(?!_)', re.DOTALL)
+_RE_BOLD_UNDERSCORES = re.compile(r'(?<!_)__(?!_)(.*?)(?<!_)__(?!_)', re.DOTALL)
 _RE_ITALIC_STARS = re.compile(r'\*(.*?)\*', re.DOTALL)
 _RE_ITALIC_UNDERSCORES = re.compile(r'_(.*?)_', re.DOTALL)
 _RE_STRIKETHROUGH = re.compile(r'~~(.*?)~~', re.DOTALL)
@@ -585,7 +585,7 @@ def markdown_to_html(text: str) -> str:
     tg_emojis = []
     def save_tg_emoji(m):
         tg_emojis.append(m.group(0))
-        return f"__TGEMOJI{len(tg_emojis)-1}__"
+        return f"@@TGEMOJI{len(tg_emojis)-1}__"
     text = _RE_TG_EMOJI.sub(save_tg_emoji, text)
 
     text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
@@ -595,11 +595,11 @@ def markdown_to_html(text: str) -> str:
 
     def save_code_block(m):
         code_blocks.append((m.group(1) or "", m.group(2)))
-        return f"__CODEBLOCK{len(code_blocks)-1}__"
+        return f"@@CODEBLOCK{len(code_blocks)-1}__"
 
     def save_inline_code(m):
         inline_codes.append(m.group(1))
-        return f"__INLINE{len(inline_codes)-1}__"
+        return f"@@INLINE{len(inline_codes)-1}__"
 
     text = _RE_CODE_BLOCK.sub(save_code_block, text)
     text = _RE_INLINE_CODE.sub(save_inline_code, text)
@@ -631,11 +631,11 @@ def markdown_to_html(text: str) -> str:
     a_tags = []
     def save_a_tag(m):
         a_tags.append(m.group(0))
-        return f"__ATAG{len(a_tags)-1}__"
+        return f"@@ATAG{len(a_tags)-1}__"
     text = _RE_A_TAG.sub(save_a_tag, text)
     text = _RE_ITALIC_UNDERSCORES.sub(r'<i>\1</i>', text)
     for i, tag in enumerate(a_tags):
-        text = text.replace(f"__ATAG{i}__", tag)
+        text = text.replace(f"@@ATAG{i}__", tag)
 
     # Strikethrough
     text = _RE_STRIKETHROUGH.sub(r'<s>\1</s>', text)
@@ -658,14 +658,14 @@ def markdown_to_html(text: str) -> str:
             r = f'<pre><code class="language-{lang}">{code}</code></pre>'
         else:
             r = f'<pre><code>{code}</code></pre>'
-        text = text.replace(f"__CODEBLOCK{i}__", r)
+        text = text.replace(f"@@CODEBLOCK{i}__", r)
 
     for i, code in enumerate(inline_codes):
-        text = text.replace(f"__INLINE{i}__", f'<code>{code}</code>')
+        text = text.replace(f"@@INLINE{i}__", f'<code>{code}</code>')
 
     # Restore premium tg-emoji tags
     for i, emoji_tag in enumerate(tg_emojis):
-        text = text.replace(f"__TGEMOJI{i}__", emoji_tag)
+        text = text.replace(f"@@TGEMOJI{i}__", emoji_tag)
 
     # Convert remaining regular emojis to premium — DOIM, hamma joyda
     text = emojis_to_premium(text)
