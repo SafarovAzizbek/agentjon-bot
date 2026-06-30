@@ -1636,7 +1636,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         session = get_chat_session(user_id, None)
         import datetime as _dt
         _now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=5)))
-        _time_str = _now.strftime('%Y-yil %d-%B, %A, %H:%M UZT')
+        _time_str = _now.strftime('%Y-%m-%d %H:%M UZT (UTC+5)')
         prompt = f"[{user_name}] [Hozir: {_time_str}] (Guest rejim. Qisqa va sifatli javob ber. Oddiy Unicode emojilar ishlat - lekin ko'p emas, 2-3 ta kifoya): {text}"
 
         response_text = ""
@@ -1793,7 +1793,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     thread_id = message.message_thread_id
     await init_bot_info(context.bot)
-    await warm_up_emojis(context.bot.token)  # Preload 260+ common custom emojis (runs once)
+    # Emoji map loaded from JSON (searchStickers API doesn't exist in Bot API)
 
     # ── Determine if bot should respond ──
     is_private = message.chat.type == "private"
@@ -1997,8 +1997,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Inject current date/time so bot ALWAYS knows the exact time
         import datetime as _dt
         _now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=5)))
-        _time_str = _now.strftime('%Y-yil %d-%B, %A, %H:%M UZT')
-        contents.append(f"[Tizim: Hozir {_time_str}]")
+        _time_str = _now.strftime('%Y-%m-%d %H:%M UZT (UTC+5)')
+        contents.append(f"[Tizim: Hozirgi sana va vaqt: {_time_str}]")
 
         # ── AI Processing with native streaming ──
         session = get_chat_session(chat_id, thread_id)
@@ -2075,10 +2075,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         asyncio.create_task(send_draft(context.bot, chat_id, response_text, draft_id, message_thread_id=thread_id))
                         last_draft_len = new_len
             except Exception as e:
+                err_str = str(e)
                 logger.error("Gemini API Error: %s", e)
-                if should_respond:
-                    await premium_reply(message, f"❌ Uzr, AI xizmatida xatolik yuz berdi: `{e}`")
-                break
+                # Retry on 429 rate limit (up to 2 retries with backoff)
+                if '429' in err_str or 'RESOURCE_EXHAUSTED' in err_str:
+                    if tool_round <= 3:  # Use tool_round as retry counter
+                        wait_time = 5 * tool_round  # 5s, 10s, 15s
+                        logger.info("Rate limited, retrying in %ds...", wait_time)
+                        await asyncio.sleep(wait_time)
+                        continue  # Retry the same prompt
+                    else:
+                        if should_respond:
+                            await premium_reply(message, "⏳ Hozir serverda band. Iltimos, 1 daqiqadan keyin qayta yozing.")
+                        break
+                else:
+                    if should_respond:
+                        await premium_reply(message, "❌ Uzr, AI xizmatida xatolik yuz berdi. Qayta urinib ko'ring.")
+                    break
             finally:
                 if _thinking_state[0]:
                     _thinking_state[0] = False
@@ -2101,8 +2114,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if (response_text
                 and not response_text.strip().startswith("[DELETE_MSG]")
                 and not response_text.strip().startswith("[IGNORE]")):
-            # Search for custom emojis for any new emojis in response
-            await ensure_emoji_coverage(context.bot.token, response_text)
+            # Emoji map loaded from JSON file (no dynamic search needed)
             reply_message = await send_final(
                 context.bot, chat_id, response_text,
                 reply_to_message_id=original_message_id,
@@ -2235,10 +2247,18 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if response_text:
                 await send_final(context.bot, chat_id, response_text,
                                 reply_to_message_id=update.message.message_id)
+            else:
+                await safe_send_message(context.bot, chat_id, f"Xush kelibsiz, {member.full_name}! 😊")
         except Exception as e:
             logger.error("Error greeting user: %s", e)
             try:
                 await safe_send_message(context.bot, chat_id, f"Xush kelibsiz, {member.full_name}! 😊")
+            except Exception:
+                pass
+        finally:
+            # Always clear the draft
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=welcome_draft_id)
             except Exception:
                 pass
 
@@ -2272,7 +2292,7 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
         # Generate AI response - tell AI to use FEWER emojis in guest mode
         import datetime as _dt
         _now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=5)))
-        _time_str = _now.strftime('%Y-yil %d-%B, %A, %H:%M UZT')
+        _time_str = _now.strftime('%Y-%m-%d %H:%M UZT (UTC+5)')
         prompt = f"[{user_name}] [Hozir: {_time_str}] (Guest rejim. Qisqa va sifatli javob ber. Oddiy Unicode emojilar ishlat - lekin ko'p emas, 2-3 ta kifoya): {text}"
         session = get_chat_session(update.effective_user.id if update.effective_user else 0, None)  # Per-user guest session
         response = await session.send_message(prompt)
