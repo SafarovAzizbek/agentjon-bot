@@ -1634,7 +1634,10 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # AI response with streaming
         user_id = update.effective_user.id if update.effective_user else 0
         session = get_chat_session(user_id, None)
-        prompt = f"[{user_name}] (Guest rejim. Qisqa va sifatli javob ber. Oddiy Unicode emojilar ishlat - lekin ko'p emas, 2-3 ta kifoya): {text}"
+        import datetime as _dt
+        _now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=5)))
+        _time_str = _now.strftime('%Y-yil %d-%B, %A, %H:%M UZT')
+        prompt = f"[{user_name}] [Hozir: {_time_str}] (Guest rejim. Qisqa va sifatli javob ber. Oddiy Unicode emojilar ishlat - lekin ko'p emas, 2-3 ta kifoya): {text}"
 
         response_text = ""
         stream = await session.send_message_stream(prompt)
@@ -1991,6 +1994,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             contents.append(f"[{user_name}]{ctx_note} rasm/audio/video/fayl yubordi.")
 
+        # Inject current date/time so bot ALWAYS knows the exact time
+        import datetime as _dt
+        _now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=5)))
+        _time_str = _now.strftime('%Y-yil %d-%B, %A, %H:%M UZT')
+        contents.append(f"[Tizim: Hozir {_time_str}]")
+
         # ── AI Processing with native streaming ──
         session = get_chat_session(chat_id, thread_id)
 
@@ -2261,7 +2270,10 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
     try:
         # Generate AI response - tell AI to use FEWER emojis in guest mode
-        prompt = f"[{user_name}] (Guest rejim. Qisqa va sifatli javob ber. Oddiy Unicode emojilar ishlat - lekin ko'p emas, 2-3 ta kifoya): {text}"
+        import datetime as _dt
+        _now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=5)))
+        _time_str = _now.strftime('%Y-yil %d-%B, %A, %H:%M UZT')
+        prompt = f"[{user_name}] [Hozir: {_time_str}] (Guest rejim. Qisqa va sifatli javob ber. Oddiy Unicode emojilar ishlat - lekin ko'p emas, 2-3 ta kifoya): {text}"
         session = get_chat_session(update.effective_user.id if update.effective_user else 0, None)  # Per-user guest session
         response = await session.send_message(prompt)
 
