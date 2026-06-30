@@ -147,7 +147,7 @@ def _get_emoji_regex():
     _emoji_regex = re.compile(pattern)
     return _emoji_regex
 
-_MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB (Render free = 512MB RAM, protect from OOM)
 
 def _load_emoji_map():
     """Load emoji -> [custom_emoji_id, ...] from JSON and Supabase."""
