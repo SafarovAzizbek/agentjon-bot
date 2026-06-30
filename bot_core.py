@@ -1977,16 +1977,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             if hasattr(part, 'text') and part.text:
                                 txt += part.text
                             elif hasattr(part, 'executable_code') and part.executable_code:
-                                txt += f"
-
-```python
-{part.executable_code.code}
-```
-"
+                                txt += f"\n\n```python\n{part.executable_code.code}\n```\n"
                             elif hasattr(part, 'code_execution_result') and part.code_execution_result:
-                                txt += f"
-`Natija: {part.code_execution_result.output}`
-"
+                                txt += f"\n`Natija: {part.code_execution_result.output}`\n"
                     except Exception:
                         try:
                             txt = chunk.text
@@ -2192,16 +2185,9 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
                             if hasattr(part, 'text') and part.text:
                                 txt += part.text
                             elif hasattr(part, 'executable_code') and part.executable_code:
-                                txt += f"
-
-```python
-{part.executable_code.code}
-```
-"
+                                txt += f"\n\n```python\n{part.executable_code.code}\n```\n"
                             elif hasattr(part, 'code_execution_result') and part.code_execution_result:
-                                txt += f"
-`Natija: {part.code_execution_result.output}`
-"
+                                txt += f"\n`Natija: {part.code_execution_result.output}`\n"
                     except Exception:
                         try:
                             txt = chunk.text
