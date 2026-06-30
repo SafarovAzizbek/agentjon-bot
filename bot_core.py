@@ -750,71 +750,34 @@ TOOLS = [
 #  SYSTEM PROMPT
 # ══════════════════════════════════════════════════════════════════════════════
 
-SYSTEM_INSTRUCTION = """Sen Agentjon — Telegram AI agent va Telegram ekspert. O'zbek tilida gaplash. Aqlli, hazilkash, samimiy do'st.
-Oddiy savol=qisqa javob. Murakkab savol=batafsil, chuqur, uzun javob(10 sahifagacha). Ilmiy/texnik mavzu=manbalar ko'rsat.
+SYSTEM_INSTRUCTION = """Sen Agentjon 2.0 - Mutlaq mukammal Telegram AI agentisan. O'zbek tilida gaplash.
+Aqlli, hazilkash, samimiy do'st. Hamma narsani mukammal tahlil qil.
+Oddiy savol = aniq qisqa javob. Murakkab savol = batafsil, chuqur, mukammal dizaynlashtirilgan javob. Ilmiy/texnik mavzu = manbalar va jadvallar ko'rsat!
 
 **Bot Qobiliyatlari (TOOLS):**
-- **Google Search (Native):** Eng so'nggi real vaqt yangiliklarini topish uchun avtomat qidiruv.
-- **Code Execution (Native):** Har qanday murakkab hisob-kitob yoki algoritmni bajarish uchun Python kod yozib, o'zingiz uni ishga tushirib natijani ola bilasiz! (Masalan, "fibonachchi hisobla" desa shunchaki kod yozing, u serverda aylanadi).
-- Shuningdek: Telegram kanallarga post yozish, guruh/admin ma'lumotlarini olish.
+- **Google Search (Native):** Eng so'nggi real vaqt yangiliklarini topish uchun.
+- **Code Execution (Native):** Python kod yozib natijasini olish!
+- **Telegram Tools:** Kanallarga post yozish, chat ma'lumotlarini olish.
 
-Emoji: har javobda 3-5 ta emoji ishlat! MUHIM: emojilarni matn ORASIGA tabiy tarzda joylashtir, bir joyga yig'ma! Har paragrafda 1 emoji bo'lsin. Misol: "Bu 🔥 juda ajoyib natija! Men 💡 yangi fikr topdim." Sarlavha boshida emoji qo'y. Ro'yxat elementlarida emoji qo'y.
-Har xabarga [REACTION:emoji] qo'y(🤔savol 🔥yaxshi 😂hazil ❤rahmat 👍oddiy 😢yomon 🤩ajoyib).
-Format: **qalin** *kursiv* ~~o'chirilgan~~ ||spoiler|| `kod` ```blok``` >iqtibos [havola](url)
-Haqorat/spam=[DELETE_MSG]. Guruhda o'zaro suhbat/salom=[IGNORE].
+**Formatlash va Dizayn (API 10.1 qoidasi):**
+Sen eng premium darajadagi formatsiyadan foydalanasan:
+1. Sarlavhalar oldidan doim Emoji qo'y. Ro'yxatlarda doim Emoji bo'lsin.
+2. Murakkab uzun javoblarda jadvallar (Markdown Tables) va > (Blockquote) ishlat.
+3. Katta kod bloklarida ````python ... ```` ishlat.
+4. Har bir abzats qisqa va aniq o'qiladigan bo'lsin. Emojilarni gap oralariga tabiiy qo'shib yoz (eng asosiysi 3-5 ta emoji kifoya, lekin o'ta o'rinli bo'lsin).
+5. Har xabarga [REACTION:emoji] qo'y(👍 👎 ❤️ 🔥 🎉 👏).
+Haqorat/spam=[DELETE_MSG]. Guruhda foydali ma'lumotsiz shunchaki salom/hayr=[IGNORE].
 
-=== TELEGRAM EKSPERT BILIMLAR (2026) ===
+=== TELEGRAM EKSPERT BILIMLAR (2026 Maksimal daraja) ===
+Sen Telegram'ning ENG KUCHLI ekspertisan, Bot API 10.1 (Iyun 2026) senga to'liq tanish.
+- 9.0: Telegram Business, Mini App Storage
+- 9.4: Custom emoji
+- 10.0: AI Bot Revolution - bot-to-bot aloqa, Guest Mode, Streaming
+- 10.1 (Eng so'nggi): Rich Messages - sendRichMessage (32768 belgi, jadvallar, expandable blockquotes)
 
-Sen Telegramning ENG KUCHLI ekspertisan. Bot API 10.1 (Iyun 2026) gacha barcha yangiliklar senga ma'lum.
-
-**Bot API versiyalar tarixi (2025-2026):**
-- 9.0 (2025-aprel): Telegram Business 2.0, Mini App Storage (DeviceStorage, SecureStorage), Gifting/Stars
-- 9.4 (2026-fevral): Custom emoji ishlatish (Premium bot egasi kerak), shaxsiy chatda topiklar (createForumTopic)
-- 9.5 (2026-mart): Sana/vaqt formatlash, guruh a'zolari uchun custom teglar, Mini App iconCustomEmojiId
-- 9.6 (2026-aprel): Managed Bots — bot boshqa botlarni yaratish/boshqarish (getManagedBotToken, replaceManagedBotToken, KeyboardButtonRequestManagedBot)
-- 10.0 (2026-may): AI Bot Revolution — bot-to-bot aloqa, Guest Mode, Streaming (sendMessageDraft), Business Bots hammaga bepul
-- 10.1 (2026-iyun): Rich Messages — sendRichMessage (32,768 belgi, 500 blok, jadvallar, ro'yxatlar, formulalar, slideshowlar)
-
-**MUHIM 2026 xususiyatlar:**
-1. sendMessageDraft — AI javobni oqim sifatida ko'rsatish (biz ishlatamiz!)
-2. sendRichMessage — 32768 belgigacha, jadvallar, formulalar, ro'yxatlar (biz ishlatamiz!)
-3. Guest Mode — bot a'zo bo'lmagan chatda @mention orqali javob berish (biz ishlatamiz!)
-4. Bot-to-Bot — botlar bir-biri bilan gaplasha oladi (BotFather'da yoqish kerak)
-5. Managed Bots — bot boshqa botlarni yarata oladi va token boshqaradi
-6. Custom Emoji — premium bot egasi bo'lsa, xabarlarda custom emoji ishlatish mumkin
-7. Premium Emoji Stickerpacks — bot premium bo'lmasa ham, stickerpack orqali custom emoji yuborishi mumkin (biz ishlatamiz!)
-
-**Kanal va Guruh boshqaruvi:**
-- Bot kanalda POST yozish uchun admin bo'lishi SHART
-- Admin qilish: Kanal sozlamalari > Administrators > Add Administrator > botni tanlash
-- Minimal ruxsatlar: faqat "Post Messages" yoqilsa yetarli
-- Bot admin bo'lgach, tg_send_to_channel tool bilan post yubora olasan
-- tg_get_chat_info bilan kanal/guruh haqida ma'lumot olasan
-- tg_get_admins bilan adminlar ro'yxatini ko'rasan
-- tg_get_chat_member_count bilan a'zolar sonini bilasan
-
-**Foydalanuvchiga PROAKTIV yordam:**
-- "kanal", "post", "guruh" deyishsa — darhol nima qila olishingni tushuntir!
-- "Meni kanalingizga admin qilib qo'ying, keyin men: 1) Premium post yozaman 2) Custom emoji bilan bezataman 3) Rich Message formatda chiroyli post yarataman!"
-- @username bersa — tg_get_chat_info bilan darhol tekshir
-- Guruh haqida so'rasa: "Men guruhda: 1) AI savol-javob 2) Moderatsiya 3) Yangi a'zolarni kutib olish 4) Guest Mode orqali boshqa chatlarda ham javob beraman"
-
-**Telegram Bot API texnik bilimlar:**
-- Xabar limiti: oddiy 4096, Rich Message 32768 belgi
-- Fayl limiti: 50 MB yuklab olish, 50 MB yuborish
-- Rasm limiti: 10 MB
-- Rate limit: guruhda 20 xabar/daqiqa (bir chatga), 30 xabar/soniya (barcha chatlarga)
-- Inline mode: 50 natija
-- Webhook: HTTPS shart, self-signed sertifikat qo'llab-quvvatlanadi
-- Polling: cheksiz, long-polling tavsiya etiladi (biz ishlatamiz!)
-- Custom emoji: bot.sendMessage da parse_mode='HTML' bilan <tg-emoji emoji-id="ID">😀</tg-emoji>
-- Sticker: searchStickers(emoji, sticker_type='custom_emoji') — 10,000+ custom emoji qidirish
-
-**Buyruqlar:**
-- /post mavzu — premium Telegram post yaratadi
-- /clear — suhbat tarixini tozalaydi
-- /help — yordam
-- /start — boshlash
+Biz sendRichMessage va Guest Mode'dan maksimal foydalanamiz!
+- Guest Mode'da yozayotganda, xabarlar yanada toza va aniq bo'lishi kerak.
+- Agar foydalanuvchi qisqa savol bersa, guruh bo'lsa ham unga maksimal qimmatli bilim ber.
 """
 
 
@@ -1642,7 +1605,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # AI response with streaming
         user_id = update.effective_user.id if update.effective_user else 0
         session = get_chat_session(user_id, None)
-        prompt = f"[{user_name}] (Guest - bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM oddiy emoji ishlat — faqat 1-2 ta, matn sifatiga e'tibor ber!): {text}"
+        prompt = f"[{user_name}] (Guest so'rov - bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM emoji ishlat - faqat 1-2 ta oddiy Unicode emoji, matn sifatiga qattiq e'tibor ber!): {text}"
 
         response_text = ""
         stream = await session.send_message_stream(prompt)
@@ -1730,7 +1693,7 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 id="guest_error",
                 title="Agentjon",
                 input_message_content=InputTextMessageContent(
-                    message_text="Salom! Men Agentjon — AI yordamchi. Savol bering! 🤖",
+                    message_text=f"🚀 Salom! Men Agentjon 2.0 (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
                 ),
             )
             await context.bot.answer_guest_query(
@@ -1743,50 +1706,33 @@ async def _handle_guest_flow(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
 # ── Smart Auto-Reply: guruhda savolga o'zi javob berish ──
 _group_last_auto: dict[int, float] = {}  # chat_id -> last auto-reply timestamp
-_AUTO_REPLY_COOLDOWN = 180  # 3 daqiqa — spam bo'lmasligi uchun
-
-# Savol so'zlari (O'zbek + Rus + Ingliz)
-_QUESTION_WORDS = re.compile(
-    r'\b(nima|qanday|qachon|nega|necha|qayerda|qayer|kim|nimaga|qancha|'
-    r'qaysi|nechta|bormi|kerakmi|mumkinmi|biladimi|bilasizmi|aytingchi|'
-    r'что|как|когда|почему|зачем|сколько|где|кто|какой|можно|'
-    r'what|how|why|when|where|who|which|can|does|is)\b',
-    re.IGNORECASE
-)
-
-# Texnik mavzular — bot foydali bo'la oladigan
-_TECH_WORDS = re.compile(
-    r'\b(python|javascript|java|code|kod|dastur|bug|xato|error|api|bot|'
-    r'telegram|server|deploy|github|linux|windows|database|sql|'
-    r'ai|gpt|gemini|chatgpt|model|network|dns|ip|html|css)\b',
-    re.IGNORECASE
-)
+_AUTO_REPLY_COOLDOWN = 30  # 30 soniya - faol muloqot uchun
 
 
 def _should_auto_reply(chat_id: int, text: str) -> bool:
-    """Guruhda avtomatik javob berish kerakmi — aqlli filtr."""
+    """Guruhda avtomatik javob berish kerakmi - aqlli filtr (Agentjon 2.0)."""
     now = time.time()
 
-    # Cooldown tekshirish — har 3 daqiqada max 1 ta auto-reply
+    # Cooldown tekshirish
     last = _group_last_auto.get(chat_id, 0)
     if now - last < _AUTO_REPLY_COOLDOWN:
         return False
 
-    # Juda qisqa xabarlar — javob bermaslik
-    if len(text) < 10:
+    # Juda qisqa xabarlar - javob bermaslik
+    if len(text) < 5:
         return False
 
-    # Savol belgisi bor
+    text_lower = text.lower()
     has_question_mark = '?' in text
+    
+    # Kengaytirilgan savol va yordam so'zlari
+    question_words = ['qanday', 'qanaqa', 'nimaga', 'nega', 'kim', 'qachon', 'qayerda', 'yordam', 'xato', 'error', 'bug']
+    has_question_word = any(w in text_lower for w in question_words)
+    
+    # Kod yoki dasturlash elementlari
+    is_code = 'def ' in text or 'function' in text or 'console.log' in text or 'print(' in text or 'import ' in text
 
-    # Savol so'zlari bor
-    has_question_word = bool(_QUESTION_WORDS.search(text))
-
-    # Texnik mavzu — bot foydali
-    has_tech = bool(_TECH_WORDS.search(text))
-
-    # Qaror: savol belgisi + savol so'zi, yoki texnik savol
-    should_reply = (has_question_mark and has_question_word) or (has_question_mark and has_tech)
+    should_reply = has_question_mark or has_question_word or is_code
 
     if should_reply:
         _group_last_auto[chat_id] = now
@@ -1863,60 +1809,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _thinking_state = [True]  # list for closure mutability
 
     async def _thinking_animation():
-        """Show animated premium emojis while waiting for first token.
-        Keeps user engaged — they SEE the bot is working, won't leave.
-        30+ noodatiy, premium kadrlar — har safar boshqa tartibda!"""
-        # ── Premium thinking kadrlar — har safar shuffle bo'ladi! ──
-        all_frames = [
-            # Fikrlash
-            "🧠 Neyronlar ishlamoqda...",
-            "🤔 Hmm, qiziq savol...",
-            "💭 Fikr oqimi kuchaymoqda...",
-            "🧩 Parchalanlarni birlashtirmoqdaman...",
-            # Qidiruv
-            "🔍 Ma'lumotlar orasidan qazib olmoqdaman...",
-            "🌐 Bilim bazasini skanerlayapman...",
-            "📡 Signallarni tutmoqdaman...",
-            "🗂 Arxivlarni titkilayapman...",
-            # Tahlil
-            "⚗️ Javobni sintez qilmoqdaman...",
-            "🔬 Chuqur tahlil qilmoqdaman...",
-            "📊 Ma'lumotlarni qayta ishlamoqdaman...",
-            "🧬 DNK darajasida tahlil...",
-            # Ijodiy
-            "✨ Sehrli javob tayyorlanmoqda...",
-            "🎨 Javobni bezatmoqdaman...",
-            "💎 Eng yaxshi javobni sayqallayapman...",
-            "🪄 Abra-kadabra...",
-            # Kosmik
-            "🚀 Kosmik tezlikda ishlamoqdaman...",
-            "🛸 Boshqa o'lchamdan ma'lumot olmoqdaman...",
-            "⭐ Yulduzlardan ilhom olmoqdaman...",
-            "🌌 Galaktika bo'ylab qidirmoqdaman...",
-            # Hazilona
-            "☕ Kofe ichyapman, biroz kuting...",
-            "🎯 Nishonga olmoqdaman...",
-            "🎪 Sirk emas, lekin qiziq bo'ladi!",
-            "🧊 Sovuqqonlik bilan ishlamoqdaman...",
-            # Yakuniy
-            "⚡ Energiya to'planmoqda...",
-            "🔥 Javob qizib kelmoqda...",
-            "💡 Eureka deyarli!",
-            "🎁 Tayyor bo'ladi, sabr...",
-            "🏆 Eng zo'r javobni tanlayapman...",
-            "✅ Deyarli tayyor!",
+        """Animated status updates for user engagement."""
+        frames = [
+            "🧠 Neyronlar ishlamoqda...", "🤔 Javob topilmoqda...", "🔍 Internetdan izlanyapti...",
+            "⚗️ Tahlil qilinmoqda...", "✨ Sehrli javob tayyorlanyapti...", "🚀 Tez orada tayyor!"
         ]
-        random.shuffle(all_frames)
         i = 0
-        max_iters = 15 if os.getenv("VERCEL") else 300  # Serverless: 15s, Polling: 5min
-        while _thinking_state[0] and i < max_iters:
-            frame = all_frames[i % len(all_frames)]
+        while _thinking_state[0]:
             try:
-                await safe_edit_message(context.bot, chat_id, draft_id, frame)
+                await safe_edit_message(context.bot, chat_id, draft_id, frames[i % len(frames)])
             except Exception:
                 pass
             i += 1
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(1.5)
 
     thinking_task = None
     if should_respond:
@@ -2275,12 +2180,7 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle messages in chats where bot is NOT a member (Guest Mode, Bot API 10.0).
-    
-    When a user @mentions the bot in a chat the bot hasn't joined,
-    Telegram delivers a guest_message update. We generate an AI response
-    and send it back via answer_guest_query.
-    """
+    """Handle messages in chats where bot is NOT a member (Guest Mode, Bot API 10.0)."""
     guest_msg = update.guest_message
     if not guest_msg or not guest_msg.guest_query_id:
         return
@@ -2305,8 +2205,8 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
     logger.info("Guest query from %s: %s", user_name, repr(text)[:80])
 
     try:
-        # Generate AI response — tell AI to use FEWER emojis in guest mode
-        prompt = f"[{user_name}] (Guest so'rov — bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM emoji ishlat — faqat 1-2 ta, matn sifatiga e'tibor ber!): {text}"
+        # Generate AI response - tell AI to use FEWER emojis in guest mode
+        prompt = f"[{user_name}] (Guest so'rov - bot a'zo bo'lmagan chatdan. MUHIM: Guest mode da premium emoji ishlamaydi, shuning uchun JUDA KAM emoji ishlat - faqat 1-2 ta oddiy Unicode emoji, matn sifatiga qattiq e'tibor ber!): {text}"
         session = get_chat_session(update.effective_user.id if update.effective_user else 0, None)  # Per-user guest session
         response = await session.send_message(prompt)
 
@@ -2336,8 +2236,7 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
             response_text = "Savol bering, javob beraman!"
 
         # Guest mode: convert to HTML but WITHOUT premium emoji conversion
-        # (premium emojis don't work in guest mode, regular ones look ugly)
-        html_text = markdown_to_html.__wrapped__(response_text) if hasattr(markdown_to_html, '__wrapped__') else _guest_markdown_to_html(response_text)
+        html_text = _guest_markdown_to_html(response_text)
 
         input_content = InputTextMessageContent(
             message_text=html_text,
@@ -2358,12 +2257,11 @@ async def handle_guest_message(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as e:
         logger.error("Guest query error: %s", e)
         try:
-            # InlineQueryResultArticle, InputTextMessageContent imported at top level
             result = InlineQueryResultArticle(
                 id="guest_error",
                 title="Agentjon",
                 input_message_content=InputTextMessageContent(
-                    message_text=f"Salom! Men Agentjon — AI yordamchi. Savol bering! 🤖",
+                    message_text=f"🚀 Salom! Men Agentjon 2.0 (Premium AI yordamchi). Guruhda bo'lmasam ham savollaringizga shunday chiroyli javob bera olaman! Marhamat, so'rayvering!",
                 ),
             )
             await context.bot.answer_guest_query(
